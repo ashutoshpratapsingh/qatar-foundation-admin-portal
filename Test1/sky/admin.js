@@ -357,38 +357,41 @@ document.getElementById('opportunityModal').addEventListener('click', function(e
             // create opportunity card element
             const token = localStorage.getItem("token");
 
-            fetch("http://127.0.0.1:5000/api/opportunities", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": "Bearer " + token
-          },
-          body: JSON.stringify({
-          name,
-          duration,
-          start_date: startDate,
-          description,
-          skills: skills.join(','),
-          category,
-          future_opportunities: futureOpportunities,
-          max_applicants: maxApplicants || null
-       })
-     })
-     .then(res => res.json())
-     .then(data => {
-         showToast("Opportunity created successfully!");
-         closeOpportunityModal();
-         loadOpportunities(); // reload from backend
-         document.getElementById('opportunityForm').reset();
-       })
-          .catch(() => {
-          showToast("Error creating opportunity");
-         });
+const method = window.editId ? "PUT" : "POST";
 
-            showToast('Opportunity created successfully!');
-            closeOpportunityModal();
-            this.reset();
-        });
+const url = window.editId
+    ? `http://127.0.0.1:5000/api/opportunities/${window.editId}`
+    : "http://127.0.0.1:5000/api/opportunities";
+
+fetch(url, {
+    method: method,
+    headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token
+    },
+    body: JSON.stringify({
+        name,
+        duration,
+        start_date: startDate,
+        description,
+        skills: skills.join(','),
+        category,
+        future_opportunities: futureOpportunities,
+        max_applicants: maxApplicants || null
+    })
+})
+.then(res => res.json())
+.then(() => {
+    showToast(window.editId ? "Updated successfully!" : "Created successfully!");
+    closeOpportunityModal();
+    loadOpportunities();
+    document.getElementById('opportunityForm').reset();
+    window.editId = null;
+})
+  .catch(() => {
+    showToast("Error saving opportunity");
+  });
+});
 
         // small helper to avoid HTML injection when inserting text
         function escapeHtml(str) {
@@ -756,8 +759,80 @@ function loadOpportunities() {
                 <p>${o.description}</p>
                 <span>${o.duration}</span>
                 <span>${o.start_date}</span>
-            `;
+
+                <div style="margin-top:10px;">
+                <button onclick="viewDetails(${o.id})">View</button>
+                <button onclick="editOpportunity(${o.id})">Edit</button>
+                <button onclick="deleteOpportunity(${o.id})">Delete</button>
+           </div>
+         `;
+
             grid.appendChild(card);
         });
+    });
+}
+
+function viewDetails(id) {
+    const token = localStorage.getItem("token");
+
+    fetch(`http://127.0.0.1:5000/api/opportunities/${id}`, {
+        headers: {
+            "Authorization": "Bearer " + token
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        openOpportunityDetails(data.name, {
+            duration: data.duration,
+            startDate: data.start_date,
+            description: data.description,
+            skills: data.skills.split(','),
+            applicants: data.max_applicants || 0,
+            futureOpportunities: data.future_opportunities
+        });
+    });
+}
+
+function editOpportunity(id) {
+    const token = localStorage.getItem("token");
+
+    fetch(`http://127.0.0.1:5000/api/opportunities/${id}`, {
+        headers: {
+            "Authorization": "Bearer " + token
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+
+        document.getElementById('oppName').value = data.name;
+        document.getElementById('oppDuration').value = data.duration;
+        document.getElementById('oppStartDate').value = data.start_date;
+        document.getElementById('oppDescription').value = data.description;
+        document.getElementById('oppSkills').value = data.skills;
+        document.getElementById('oppCategory').value = data.category;
+        document.getElementById('oppFuture').value = data.future_opportunities;
+        document.getElementById('oppMaxApplicants').value = data.max_applicants || "";
+
+        openOpportunityModal();
+
+        window.editId = id;
+    });
+}
+
+function deleteOpportunity(id) {
+    const token = localStorage.getItem("token");
+
+    if (!confirm("Are you sure you want to delete this opportunity?")) return;
+
+    fetch(`http://127.0.0.1:5000/api/opportunities/${id}`, {
+        method: "DELETE",
+        headers: {
+            "Authorization": "Bearer " + token
+        }
+    })
+    .then(res => res.json())
+    .then(() => {
+        showToast("Deleted successfully");
+        loadOpportunities();
     });
 }
